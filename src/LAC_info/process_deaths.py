@@ -42,7 +42,6 @@ if __name__ == "__main__":
         df[unit] = census[unit].merge(deaths[unit], on=['datetime', 'unit'], how='outer').fillna(0)
 
     results = pd.concat([df[unit] for unit in ['4A', '4B']]).reset_index()
-    import pdb; pdb.set_trace()
     results = results.sort_values(by=['datetime', 'unit']).set_index('datetime')
 
     freqs = {"1H": "1hour", "30T": "30min"}
