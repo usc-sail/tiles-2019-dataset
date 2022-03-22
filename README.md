@@ -19,6 +19,9 @@ Contains code to process phone information (time-zone).
 ### proximity
 Contains code to process BLE proximity to Atom Badge information (owl-in-one, minew, eddystone).
 
+### survey
+Contains code code to process daily/weekly surveys and igtb.
+
 ### rescue-time
 Contains code to process rescue-time information (smartphone usage).
 
