@@ -16,6 +16,9 @@ Contains code to process fitbit data (e.g. heart rate, step count, sleep).
 ### phone
 Contains code to process phone information (time-zone).
 
+### proximity
+Contains code to process BLE proximity to Atom Badge information (owl-in-one, minew, eddystone).
+
 ### rescue-time
 Contains code to process rescue-time information (smartphone usage).
 
