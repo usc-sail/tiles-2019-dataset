@@ -10,5 +10,14 @@ Contains code to process hospital information.
 ### Baseline
 Contains SPSS code to process the baseline surveys.
 
+### fitbit
+Contains code to process fitbit data (e.g. heart rate, step count, sleep).
+
+### phone
+Contains code to process phone information (time-zone).
+
+### rescue-time
+Contains code to process rescue-time information (smartphone usage).
+
 ### Evaluations
 Contains SPSS code to process the resident evaluations.
