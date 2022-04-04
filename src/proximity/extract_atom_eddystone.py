@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import os
 import sys
+import pdb
 
 ###########################################################
 # Change to your own library path
@@ -63,57 +64,44 @@ def check_micu_data_valid(data_time, start_date1, end_date1, start_date2, end_da
 
 if __name__ == '__main__':
     # Read data root path
-    delevery_root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir, os.path.pardir, 'delivery_data'))
-    setup_root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir, os.path.pardir, 'setup_data'))
-    participant_info_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir, os.path.pardir, 'participant-info'))
-    saving_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir, os.path.pardir, 'tiles-phase2-opendataset'))
+    root_dir = '/media/data/tiles-processed/tiles-phase2-delivery'
+    output_dir = '/media/data/tiles-opendataset/tiles-phase2-opendataset'
+    
+    delevery_root_path = os.path.abspath(os.path.join(root_dir, 'delivery_data'))
+    setup_root_path = os.path.abspath(os.path.join(root_dir, 'setup_data'))
+    participant_info_path = os.path.abspath(os.path.join(root_dir, 'participant-info'))
 
     hash_df = pd.read_csv('hashed_phase2_minews.csv')
     study_period = pd.read_csv(os.path.join(participant_info_path, 'study-periods.csv'), index_col=0)
-
-    # participant_list = os.listdir(os.path.join(delevery_root_path, 'Phase2'))
-    participant_list = list(study_period.index)
-    participant_list.sort()
-
     micu_df = pd.read_csv(os.path.join(participant_info_path, 'p2_micuschedules_public_5.21.csv'), index_col=0)
     micu_df = micu_df.dropna(subset=['MICU Start Date 1'])
+    participant_list = list(study_period.index)
+    participant_list.sort()
 
     for participant_id in participant_list:
 
         id = participant_id[:8]
-        if os.path.exists(os.path.join(delevery_root_path, 'Phase2', id, 'AtomProximity', id + '_AtomEddyStone.csv')) is False:
+        if os.path.exists(os.path.join(delevery_root_path, id, 'AtomProximity', id + '_AtomEddyStone.csv')) is False:
             continue
-
-        eddy_df = pd.read_csv(os.path.join(delevery_root_path, 'Phase2', id, 'AtomProximity', id + '_AtomEddyStone.csv'))
+        eddy_df = pd.read_csv(os.path.join(delevery_root_path, id, 'AtomProximity', id + '_AtomEddyStone.csv'))
         eddy_df = eddy_df.sort_index()
 
-        # read start and end time for the study
-        start_date = pd.to_datetime(study_period.loc[participant_id, 'start_date'])
-        end_date = pd.to_datetime(study_period.loc[participant_id, 'end_date']) + timedelta(days=1)
-        start_skip_date, end_skip_date = '', ''
-        if len(str(study_period.loc[participant_id, 'start_skip_date'])) != 3:
-            start_skip_date = pd.to_datetime(study_period.loc[participant_id, 'start_skip_date'])
-            end_skip_date = pd.to_datetime(study_period.loc[participant_id, 'end_skip_date']) + timedelta(days=1)
-
-        make_dir(os.path.join(saving_path, 'atomproximity'))
-        make_dir(os.path.join(saving_path, 'atomproximity', 'eddystone'))
-        save_root_path = os.path.join(saving_path, 'atomproximity', 'eddystone')
+        make_dir(os.path.join(output_dir, 'atomproximity'))
+        make_dir(os.path.join(output_dir, 'atomproximity', 'eddystone'))
+        save_root_path = os.path.join(output_dir, 'atomproximity', 'eddystone')
 
         micu_start1 = pd.to_datetime(micu_df.loc[participant_id, 'MICU Start Date 1']).strftime(date_time_format)[:-3]
-        micu_end1 = pd.to_datetime(micu_df.loc[participant_id, 'MICU End Date 1']).strftime(date_time_format)[:-3]
+        micu_end1 = (pd.to_datetime(micu_df.loc[participant_id, 'MICU End Date 1'])+timedelta(days=1, minutes=-1)).strftime(date_time_format)[:-3]
 
         micu_start2 = str(micu_df.loc[participant_id, 'MICU Start Date 2'])
         micu_end2 = str(micu_df.loc[participant_id, 'MICU End Date 2'])
 
-        if str(micu_start2) == 'nan':
-            micu_end1 = (pd.to_datetime(micu_start1) + timedelta(days=21)).strftime(date_time_format)[:-3]
-        else:
+        if str(micu_start2) != 'nan':
             number_of_days1 = int((pd.to_datetime(micu_end1) - pd.to_datetime(micu_start1)).total_seconds() / (24 * 3600)) + 1
             left_days = 21 - number_of_days1
             if left_days:
-                micu_end2 = (pd.to_datetime(micu_start2) + timedelta(days=left_days)).strftime(date_time_format)[:-3]
+                micu_end2 = (pd.to_datetime(micu_start2) + timedelta(days=left_days, minutes=-1)).strftime(date_time_format)[:-3]
             else:
-                micu_end1 = (pd.to_datetime(micu_start1) + timedelta(days=21)).strftime(date_time_format)[:-3]
                 micu_start2, micu_end2 = 'nan', 'nan'
 
         with open(os.path.join(save_root_path, participant_id + '.csv'), 'w') as csv_output:
@@ -122,20 +110,20 @@ if __name__ == '__main__':
 
             for i, index in enumerate(list(eddy_df.index)):
                 tmp_row_df = eddy_df.iloc[i, :]
-
                 if check_micu_data_valid(tmp_row_df['timestamp'][:-5], micu_start1, micu_end1, micu_start2, micu_end2) == False:
+                    print('start1-end1: %s-%s, start2-end2: %s-%s' % (micu_start1, micu_end1, micu_start2, micu_end2))
                     print('Skip %s' % (tmp_row_df['timestamp']))
                 else:
                     directory_str = tmp_row_df['eddystoneDirectory']
                     if 'lounge' in directory_str:
                         directory_str = directory_str.split(':lounge:')[0] + ':' + directory_str.split(':lounge:')[1]
-
                     hashed_str = hash_df.loc[hash_df['eddystone_directory'] == directory_str]['hashed'].values[0]
                     csv_writer.writerow([tmp_row_df['timestamp'], hashed_str, tmp_row_df['rssi']])
+                    
                     if i % 1000 == 0:
                         print('process %s, index at %.2f %%' % (id, i / len(eddy_df) * 100))
 
-        final_df = pd.read_csv(os.path.join(saving_path, 'atomproximity', 'eddystone', participant_id + '.csv'))
-        final_df.to_csv(os.path.join(saving_path, 'atomproximity', 'eddystone', participant_id + '.csv.gz'), index=False, compression='gzip')
-        os.remove(os.path.join(saving_path, 'atomproximity', 'eddystone', participant_id + '.csv'))
+        save_df = pd.read_csv(os.path.join(output_dir, 'atomproximity', 'eddystone', participant_id + '.csv'))
+        save_df.to_csv(os.path.join(output_dir, 'atomproximity', 'eddystone', participant_id + '.csv.gz'), index=False, compression='gzip')
+        os.remove(os.path.join(output_dir, 'atomproximity', 'eddystone', participant_id + '.csv'))
 

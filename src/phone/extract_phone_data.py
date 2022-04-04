@@ -9,52 +9,58 @@ date_format = '%Y-%m-%d'
 
 
 def make_dir(data_path):
-	if os.path.exists(data_path) is False:
-		os.mkdir(data_path)
+    if os.path.exists(data_path) is False:
+        os.mkdir(data_path)
 
 
-def extract_phone_data(id, start_date, end_date, start_skip_date, end_skip_date, delevery_root_path, output_path, by_col, file_type):
-	if os.path.exists(os.path.join(delevery_root_path, 'Phase2', id[:8], 'Phone', id[:8] + file_type + '.csv')) is True:
+def extract_phone_data(id, delevery_root_path, output_path, by_col, file_type):
+    if os.path.exists(os.path.join(delevery_root_path, id[:8], 'Phone', id[:8] + file_type + '.csv')) is True:
 
-		data_df = pd.read_csv(os.path.join(delevery_root_path, 'Phase2', id[:8], 'Phone', id[:8] + file_type + '.csv'))
-		data_df = data_df.sort_values(by=[by_col])
-		if start_skip_date == '':
-			final_df = data_df[data_df[by_col].between(start_date, end_date, inclusive=False)]
-		else:
-			tmp_df1 = data_df[data_df[by_col].between(start_date, start_skip_date, inclusive=False)]
-			tmp_df2 = data_df[data_df[by_col].between(end_skip_date, end_date, inclusive=False)]
-			final_df = tmp_df1.append(tmp_df2)
+        data_df = pd.read_csv(os.path.join(delevery_root_path, id[:8], 'Phone', id[:8] + file_type + '.csv'))
+        data_df = data_df.sort_values(by=[by_col])
+        micu_start1 = pd.to_datetime(micu_df.loc[id, 'MICU Start Date 1']).strftime(date_time_format)[:-3]
+        micu_end1 = (pd.to_datetime(micu_df.loc[id, 'MICU End Date 1'])+timedelta(days=1, minutes=-1)).strftime(date_time_format)[:-3]
+        micu_start2 = str(micu_df.loc[id, 'MICU Start Date 2'])
+        
+        if str(micu_start2) == 'nan':
+            save_df = data_df[data_df[by_col].between(micu_start1, micu_end1, inclusive=False)]
+        else:
+            micu_start2 = pd.to_datetime(micu_start2).strftime(date_time_format)[:-3]
+            number_of_days1 = int((pd.to_datetime(micu_end1) - pd.to_datetime(micu_start1)).total_seconds() / (24 * 3600)) + 1
+            left_days = 21 - number_of_days1
+            if left_days:
+                micu_end2 = (pd.to_datetime(micu_start2) + timedelta(days=left_days, minutes=-1)).strftime(date_time_format)[:-3]
+                tmp_df1 = data_df[data_df[by_col].between(micu_start1, micu_end1, inclusive=False)]
+                tmp_df2 = data_df[data_df[by_col].between(micu_start2, micu_end2, inclusive=False)]
+                save_df = tmp_df1.append(tmp_df2)
+            else:
+                save_df = data_df[data_df[by_col].between(micu_start1, micu_end1, inclusive=False)]
+        
+        make_dir(os.path.join(output_path))
+        make_dir(os.path.join(output_path, 'phone'))
 
-		make_dir(os.path.join(output_path))
-		make_dir(os.path.join(output_path, 'Phase2'))
-		make_dir(os.path.join(output_path, 'Phase2', id[:8]))
-		make_dir(os.path.join(output_path, 'Phase2', id[:8], 'Phone'))
-
-		print('save %s, %s' % (id[:8], id[:8] + file_type + '.csv'))
-		final_df.to_csv(os.path.join(output_path, 'Phase2', id[:8], 'Phone', id[:8] + file_type + '.csv'), index=False)
+        print('save %s, %s' % (id[:8], id[:8] + file_type + '.csv'))
+        save_df.to_csv(os.path.join(output_path, 'phone', id + '.csv.gz'), index=False, compression='gzip')
 
 
 if __name__ == '__main__':
 
-	# Read data root path
-	delevery_root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir, os.path.pardir, 'delivery_data'))
-	setup_root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir, os.path.pardir, 'setup_data'))
-	participant_info_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir, os.path.pardir, 'participant-info'))
-	output_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir, os.path.pardir, 'delivery_data_utc'))
+    # Read data root path
+    root_dir = '/media/data/tiles-processed/tiles-phase2-delivery'
+    output_dir = '/media/data/tiles-opendataset/tiles-phase2-opendataset'
+    
+    delevery_root_path = os.path.abspath(os.path.join(root_dir, 'delivery_data'))
+    setup_root_path = os.path.abspath(os.path.join(root_dir, 'setup_data'))
+    participant_info_path = os.path.abspath(os.path.join(root_dir, 'participant-info'))
+    
+    # read study period data frame
+    study_period = pd.read_csv(os.path.join(participant_info_path, 'study-periods.csv'), index_col=0)
+    micu_df = pd.read_csv(os.path.join(participant_info_path, 'p2_micuschedules_public_5.21.csv'), index_col=0)
+    micu_df = micu_df.dropna(subset=['MICU Start Date 1'])
 
-	study_period = pd.read_csv(os.path.join(participant_info_path, 'study-periods.csv'), index_col=0)
-	participant_list = list(study_period.index)
-	participant_list.sort()
-
-	for id in participant_list[:]:
-
-		# read start and end time for the study
-		start_date = pd.to_datetime(study_period.loc[id, 'start_date']).strftime(date_time_format)[:-3]
-		end_date = (pd.to_datetime(study_period.loc[id, 'end_date']) + timedelta(days=1)).strftime(date_time_format)[:-3]
-		start_skip_date, end_skip_date = '', ''
-		if len(str(study_period.loc[id, 'start_skip_date'])) != 3:
-			start_skip_date = (pd.to_datetime(study_period.loc[id, 'start_skip_date']) - timedelta(seconds=1)).strftime(date_time_format)[:-3]
-			end_skip_date = (pd.to_datetime(study_period.loc[id, 'end_skip_date']) + timedelta(days=1)).strftime(date_time_format)[:-3]
-
-		# phone data
-		extract_phone_data(id, start_date, end_date, start_skip_date, end_skip_date, delevery_root_path, output_path, by_col='event_ts', file_type='_Phone_TimezoneOffset')
+    participant_list = list(study_period.index)
+    participant_list.sort()
+    
+    for id in participant_list:
+        # phone data
+        extract_phone_data(id, delevery_root_path, output_dir, by_col='event_ts', file_type='_Phone_TimezoneOffset')
